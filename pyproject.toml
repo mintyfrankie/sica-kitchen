@@ -3,9 +3,9 @@ name = "sica-kitchen"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
-    { name = "mintyfrankie", email = "77310871+mintyfrankie@users.noreply.github.com" }
+    { name = "mintyfrankie", email = "77310871+mintyfrankie@users.noreply.github.com" },
 ]
-dependencies = []
+dependencies = ["langgraph>=0.2.53"]
 readme = "README.md"
 requires-python = ">= 3.8"
 
@@ -21,4 +21,4 @@ dev-dependencies = []
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sica_kitchen"]
+packages = ["src/sica-kitchen"]
