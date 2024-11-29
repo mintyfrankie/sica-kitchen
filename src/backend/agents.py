@@ -358,12 +358,11 @@ class CostCalculator:
 
 class RecipeSummarizer:
     """
-    Summarize a recipe.
+    Create a summary of the recipe, including ingredients and costs.
     """
 
     def __init__(self) -> None:
-        """Initialize the OpenAI client and logger."""
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        """Initialize the logger."""
         self.logger = StructuredLogger(__name__)
 
     def summarize(
@@ -374,59 +373,70 @@ class RecipeSummarizer:
         ingredient_costs: Dict[str, float],
     ) -> str:
         """
-        Create a user-friendly summary of the recipe and costs.
+        Create a user-friendly summary of the recipe.
 
         Args:
             recipe: The recipe to summarize.
-            missing_ingredients: List of missing ingredients.
+            missing_ingredients: List of ingredients the user needs to buy.
             total_cost: Total cost of missing ingredients.
-            ingredient_costs: Dictionary of ingredient costs.
+            ingredient_costs: Cost breakdown by ingredient.
 
         Returns:
-            str: A formatted summary of the recipe and costs.
+            str: A formatted summary of the recipe.
         """
-        self.logger.info("Generating recipe summary")
+        from backend.utils.spoonacular.services import get_recipe_information
 
-        chat_messages: List[ChatCompletionMessageParam] = [
-            {
-                "role": "system",
-                "content": "Create a friendly summary of the recipe, including the title, missing ingredients, and their costs.",
-            },
-            {
-                "role": "user",
-                "content": f"""
-                Recipe: {recipe['title']}
-                Missing Ingredients: {', '.join(ing['name'] for ing in missing_ingredients)}
-                Individual Costs: {ingredient_costs}
-                Total Cost: ${total_cost:.2f}
-                """,
-            },
-        ]
+        # Get detailed recipe information
+        recipe_info = get_recipe_information(recipe["id"])
 
-        try:
-            response: ChatCompletion = self.client.chat.completions.create(
-                model=OPENAI_MODEL,
-                messages=chat_messages,
-                temperature=0.7,
+        # Start with recipe title
+        summary = f"**{recipe['title']} Recipe Summary**\n\n"
+
+        # Add introduction
+        summary += f"Get ready to whip up a delicious {recipe['title']}! "
+        if recipe_info and recipe_info["summary"]:
+            # Clean up HTML tags from summary and limit length
+            clean_summary = (
+                recipe_info["summary"].replace("<b>", "").replace("</b>", "")
             )
+            first_sentence = clean_summary.split(". ")[0] + "."
+            summary += first_sentence + "\n\n"
 
-            content = response.choices[0].message.content
-            if content is None:
-                self.logger.error("Received empty response from OpenAI")
-                raise ValueError("Received empty response from OpenAI")
+        # List missing ingredients with costs
+        if missing_ingredients:
+            summary += "To make this tasty dish, you'll need a couple of ingredients that you might need to pick up: \n\n"
+            for ingredient in missing_ingredients:
+                cost = ingredient_costs.get(ingredient["name"], 0)
+                summary += f"- **{ingredient['name'].title()}**: ${cost:.2f}\n"
+            summary += f"\nIn total, you'll be looking at a cost of **${total_cost:.2f}** for these essential ingredients. "
 
-            self.logger.info(
-                "Successfully generated recipe summary", response_length=len(content)
-            )
-            return content
+        # Add cooking instructions if available
+        if recipe_info and recipe_info["instructions"]:
+            summary += "\n\n**Cooking Instructions:**\n"
+            if recipe_info["readyInMinutes"]:
+                summary += (
+                    f"*Preparation Time: {recipe_info['readyInMinutes']} minutes*\n"
+                )
+            if recipe_info["servings"]:
+                summary += f"*Servings: {recipe_info['servings']}*\n\n"
 
-        except Exception as e:
-            self.logger.error(
-                "Error generating recipe summary",
-                error=str(e),
-                error_type=type(e).__name__,
-            )
-            raise
+            # Add step-by-step instructions
+            if recipe_info["analyzedInstructions"]:
+                for section in recipe_info["analyzedInstructions"]:
+                    if section.get("name"):
+                        summary += f"\n**{section['name']}:**\n"
+                    for step in section.get("steps", []):
+                        summary += f"{step['number']}. {step['step']}\n"
+            else:
+                # Fallback to plain instructions
+                summary += recipe_info["instructions"]
+
+        # Add source attribution if available
+        if recipe_info and recipe_info.get("sourceUrl"):
+            summary += f"\n\nRecipe source: {recipe_info['sourceUrl']}"
+
+        summary += "\n\nHappy cooking!"
+        return summary
 
 
 class IntentionDetector:
