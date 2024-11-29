@@ -85,6 +85,8 @@ pygments==2.18.0
     # via ipython
 python-dateutil==2.9.0.post0
     # via jupyter-client
+python-dotenv==1.0.1
+    # via sica-kitchen
 pyzmq==26.2.0
     # via ipykernel
     # via jupyter-client

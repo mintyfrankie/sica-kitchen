@@ -8,6 +8,7 @@ authors = [
 dependencies = [
     "openai>=1.55.3",
     "httpx>=0.28.0",
+    "python-dotenv>=1.0.1",
 ]
 readme = "README.md"
 requires-python = ">= 3.8"
@@ -18,13 +19,10 @@ build-backend = "hatchling.build"
 
 [tool.rye]
 managed = true
-dev-dependencies = [
-    "ipykernel>=6.29.5",
-    "ruff>=0.8.1",
-]
+dev-dependencies = ["ipykernel>=6.29.5", "ruff>=0.8.1"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["notebooks"]
+packages = ["src/backend"]
