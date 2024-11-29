@@ -7,14 +7,6 @@ making it easier to work with the API data in a type-safe manner.
 
 from typing import List, TypedDict, Optional
 
-__all__ = [
-    "Ingredient",
-    "Recipe",
-    "RecipeStep",
-    "RecipeInformation",
-    "SpoonacularSearchResponse",
-]
-
 
 class Ingredient(TypedDict):
     """
