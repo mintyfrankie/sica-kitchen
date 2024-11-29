@@ -5,9 +5,14 @@ build/
 dist/
 wheels/
 *.egg-info
+.ruff_cache/
+logs/
 
 # MacOS
 **/.DS_Store
 
 # venv
 .venv
+
+# env
+**/.env
