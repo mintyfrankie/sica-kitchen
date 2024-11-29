@@ -5,7 +5,7 @@ description = "Add your description here"
 authors = [
     { name = "mintyfrankie", email = "77310871+mintyfrankie@users.noreply.github.com" },
 ]
-dependencies = ["langgraph>=0.2.53"]
+dependencies = []
 readme = "README.md"
 requires-python = ">= 3.8"
 
@@ -21,4 +21,4 @@ dev-dependencies = []
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/sica-kitchen"]
+packages = ["notebooks"]
