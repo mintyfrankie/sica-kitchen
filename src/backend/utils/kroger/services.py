@@ -8,7 +8,7 @@ from base64 import b64encode
 
 from time import time
 
-from backend.utils.interfaces import (
+from backend.utils.kroger.interfaces import (
     KrogerAuthenticationResponse,
     KrogerProductSearchResponse,
 )

@@ -5,8 +5,12 @@ Functions to interact with Spoonacular API.
 import httpx
 import os
 
+from backend.utils.spoonacular.interfaces import SpoonacularSearchResponse
 
-def get_recipe(ingredients: list[str], number: int = 1, ranking: int = 1) -> dict:
+
+def get_recipe(
+    ingredients: list[str], number: int = 1, ranking: int = 1
+) -> SpoonacularSearchResponse:
     """
     Get a recipe from Spoonacular API.
     """
