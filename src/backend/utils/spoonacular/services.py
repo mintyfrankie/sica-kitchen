@@ -10,7 +10,6 @@ import os
 from typing import Optional, List
 
 from backend.utils.spoonacular.interfaces import (
-    SpoonacularSearchResponse,
     RecipeInformation,
     Recipe,
 )

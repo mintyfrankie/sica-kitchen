@@ -11,11 +11,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
 
-# Create logs directory if it doesn't exist
 LOGS_DIR = Path("logs")
 LOGS_DIR.mkdir(exist_ok=True)
 
-# Generate log filename with timestamp
 LOG_FILENAME = LOGS_DIR / f"chatbot_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 
 
@@ -36,7 +34,6 @@ def setup_logging(level: int = logging.INFO) -> None:
     Args:
         level: The logging level to use. Defaults to logging.INFO.
     """
-    # Create formatters
     console_formatter = ContextFormatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
@@ -44,11 +41,9 @@ def setup_logging(level: int = logging.INFO) -> None:
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(context)s"
     )
 
-    # Create console handler
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(console_formatter)
 
-    # Create file handler
     file_handler = logging.handlers.RotatingFileHandler(
         LOG_FILENAME,
         maxBytes=10485760,  # 10MB
@@ -56,7 +51,6 @@ def setup_logging(level: int = logging.INFO) -> None:
     )
     file_handler.setFormatter(file_formatter)
 
-    # Configure root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(level)
     root_logger.addHandler(console_handler)

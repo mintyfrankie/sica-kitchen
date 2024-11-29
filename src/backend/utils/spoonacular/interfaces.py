@@ -118,7 +118,3 @@ class RecipeInformation(TypedDict):
     readyInMinutes: int
     servings: int
     sourceUrl: Optional[str]
-
-
-# Type alias for the response from findByIngredients endpoint
-SpoonacularSearchResponse = List[Recipe]
