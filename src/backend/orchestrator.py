@@ -2,10 +2,11 @@
 Orchestrator for the recipe chatbot workflow.
 """
 
-from typing import Dict, Any, List, cast
+from typing import Dict, Any, List, cast, Callable
 from dataclasses import dataclass
 import time
 import logging
+from functools import wraps
 
 from backend.agents import (
     GeneralAssistant,
@@ -27,6 +28,46 @@ class ChatbotResponse:
 
     message: str
     data: Dict[str, Any]
+
+
+def log_execution(log_type: str, message: str) -> None:
+    """
+    Log execution details to Streamlit's session state if available.
+
+    Args:
+        log_type: Type of log entry (agent, api, info)
+        message: Log message to display
+    """
+    logger = StructuredLogger(__name__)
+    logger.info(message, context={"log_type": log_type})
+
+
+def log_step(step_type: str) -> Callable:
+    """
+    Decorator to log execution steps.
+
+    Args:
+        step_type: Type of step being logged
+    """
+
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            logger = StructuredLogger(__name__)
+            logger.info(
+                f"Starting {func.__name__}",
+                context={"step_type": step_type, "action": "start"},
+            )
+            result = func(*args, **kwargs)
+            logger.info(
+                f"Completed {func.__name__}",
+                context={"step_type": step_type, "action": "complete"},
+            )
+            return result
+
+        return wrapper
+
+    return decorator
 
 
 class RecipeChatbot:
@@ -52,6 +93,7 @@ class RecipeChatbot:
         self.conversation_state: Dict[str, Any] = {}
         self.logger.info("Chatbot initialization complete")
 
+    @log_step("agent")
     def process_message(self, user_input: str) -> ChatbotResponse:
         """
         Process user input and return appropriate response.
