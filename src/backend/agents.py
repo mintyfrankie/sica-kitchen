@@ -157,6 +157,53 @@ class RecipeFinder:
         """Initialize the logger."""
         self.logger = StructuredLogger(__name__)
 
+    def _score_recipe(self, recipe: Recipe, main_ingredients: List[str]) -> float:
+        """
+        Score a recipe based on ingredient usage and relevance.
+
+        Args:
+            recipe: Recipe to score.
+            main_ingredients: List of main ingredients that should be featured.
+
+        Returns:
+            float: Score between 0 and 1, higher is better.
+        """
+        # Convert everything to lowercase for comparison
+        main_ingredients_lower = [ing.lower() for ing in main_ingredients]
+        used_ingredients = [
+            ing["name"].lower() for ing in recipe.get("usedIngredients", [])
+        ]
+        missed_ingredients = [
+            ing["name"].lower() for ing in recipe.get("missedIngredients", [])
+        ]
+
+        # Calculate basic scores
+        main_ingredient_usage = sum(
+            1
+            for ing in used_ingredients
+            if any(main in ing for main in main_ingredients_lower)
+        )
+        total_ingredients = len(used_ingredients) + len(missed_ingredients)
+        used_ratio = (
+            len(used_ingredients) / total_ingredients if total_ingredients > 0 else 0
+        )
+
+        # Penalize if none of the main ingredients are primary ingredients in the recipe title
+        title_relevance = any(
+            main in recipe["title"].lower() for main in main_ingredients_lower
+        )
+
+        # Combine scores with weights
+        score = (
+            0.4
+            * main_ingredient_usage
+            / len(main_ingredients)  # How many main ingredients are used
+            + 0.3 * used_ratio  # Ratio of available to total ingredients
+            + 0.3 * (1.0 if title_relevance else 0.0)  # Title relevance bonus
+        )
+
+        return score
+
     def find_recipe(self, ingredients: List[str]) -> Recipe:
         """
         Find a recipe based on available ingredients.
@@ -169,11 +216,27 @@ class RecipeFinder:
         """
         self.logger.info("Searching for recipe")
 
-        recipes = get_recipe(ingredients, number=1, ranking=2)
+        # Get more recipes to choose from
+        recipes = get_recipe(ingredients, number=5, ranking=1)
         if not recipes:
             self.logger.error("No recipes found for the given ingredients")
             raise ValueError("No recipes found for the given ingredients")
-        return recipes[0]
+
+        # Score and sort recipes
+        scored_recipes = [
+            (recipe, self._score_recipe(recipe, ingredients)) for recipe in recipes
+        ]
+        scored_recipes.sort(key=lambda x: x[1], reverse=True)
+
+        self.logger.info(
+            "Found and scored recipes",
+            scores=[
+                {"title": recipe["title"], "score": score}
+                for recipe, score in scored_recipes
+            ],
+        )
+
+        return scored_recipes[0][0]  # Return the highest scoring recipe
 
 
 class RecipeAdjuster:
@@ -213,6 +276,28 @@ class PriceFetcher:
     Fetch the price of ingredients from a grocery store.
     """
 
+    def _clean_ingredient_name(self, name: str) -> str:
+        """
+        Clean ingredient name for API search.
+
+        Args:
+            name: Raw ingredient name from recipe.
+
+        Returns:
+            str: Cleaned ingredient name suitable for search.
+        """
+        # Remove everything after * or ( or ,
+        name = name.split("*")[0].split("(")[0].split(",")[0]
+
+        # Remove common unnecessary words
+        unnecessary_words = ["slabs of", "pieces of", "of", "fresh", "whole"]
+        for word in unnecessary_words:
+            name = name.replace(word, "")
+
+        # Clean up whitespace and strip
+        name = " ".join(name.split())
+        return name.strip()
+
     def get_prices(
         self, ingredients: List[Ingredient]
     ) -> List[Tuple[str, KrogerProductSearchResponse]]:
@@ -229,9 +314,8 @@ class PriceFetcher:
 
         prices = []
         for ingredient in ingredients:
-            price_data = get_product_price(
-                ingredient["name"], authentication_data=auth_data
-            )
+            clean_name = self._clean_ingredient_name(ingredient["name"])
+            price_data = get_product_price(clean_name, authentication_data=auth_data)
             prices.append((ingredient["name"], price_data))
 
         return prices
@@ -363,14 +447,32 @@ class IntentionDetector:
             user_input: The user's input message.
 
         Returns:
-            str: The detected intention.
+            str: The detected intention, one of:
+                - 'ingredients': User is listing ingredients they have
+                - 'recipe_search': User is asking what they can make with ingredients
+                - 'other': User has a different request
         """
         self.logger.info("Detecting user intention")
 
         chat_messages: List[ChatCompletionMessageParam] = [
             {
                 "role": "system",
-                "content": "Detect if the user is listing ingredients or asking for something else. Return either 'ingredients' or 'other'.",
+                "content": """Detect the user's intention. Return EXACTLY one of these words without quotes:
+                ingredients
+                recipe_search
+                other
+
+                Guidelines:
+                - ingredients: If the user is just listing ingredients they have
+                - recipe_search: If the user is asking what they can make with ingredients or mentioning ingredients they want to cook with
+                - other: For any other type of request
+
+                Examples:
+                "I have chicken, onions, and garlic" -> ingredients
+                "What can I make with chicken and onions?" -> recipe_search
+                "I want to cook something with pasta" -> recipe_search
+                "How do I store leftover food?" -> other
+                """,
             },
             {
                 "role": "user",
@@ -390,10 +492,13 @@ class IntentionDetector:
                 self.logger.error("Received empty response from OpenAI")
                 raise ValueError("Received empty response from OpenAI")
 
+            # Strip any whitespace and quotes
+            intention = content.lower().strip().strip("'\"")
+
             self.logger.info(
-                "Successfully detected user intention", intention=content.lower()
+                "Successfully detected user intention", intention=intention
             )
-            return content.lower()
+            return intention
 
         except Exception as e:
             self.logger.error(

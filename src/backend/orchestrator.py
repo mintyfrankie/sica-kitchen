@@ -70,7 +70,7 @@ class RecipeChatbot:
         intention = self.intention_detector.detect_intention(user_input)
         self.logger.info("Detected intention", intention=intention)
 
-        if intention == "ingredients":
+        if intention in ["ingredients", "recipe_search"]:
             self.logger.set_context(workflow="recipe_search")
 
             # Extract ingredients
