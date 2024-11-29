@@ -13,6 +13,7 @@ from backend.utils.spoonacular import get_recipe
 from backend.utils.spoonacular.interfaces import Recipe, Ingredient
 from backend.utils.kroger import authenticate_kroger, get_product_price
 from backend.utils.kroger.interfaces import KrogerProductSearchResponse
+from backend.utils.logging import StructuredLogger
 
 
 class Message(TypedDict):
@@ -32,8 +33,9 @@ class GeneralAssistant:
     """
 
     def __init__(self) -> None:
-        """Initialize the OpenAI client."""
+        """Initialize the OpenAI client and logger."""
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.logger = StructuredLogger(__name__)
 
     def get_completion(self, messages: List[Message]) -> str:
         """
@@ -45,6 +47,12 @@ class GeneralAssistant:
         Returns:
             str: The assistant's response.
         """
+        self.logger.info(
+            "Requesting completion from OpenAI",
+            model=OPENAI_MODEL,
+            message_count=len(messages),
+        )
+
         chat_messages: List[ChatCompletionMessageParam] = [
             {
                 "role": msg["role"],
@@ -53,16 +61,31 @@ class GeneralAssistant:
             for msg in messages
         ]
 
-        response: ChatCompletion = self.client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=chat_messages,
-            temperature=0.7,
-        )
+        try:
+            response: ChatCompletion = self.client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=chat_messages,
+                temperature=0.7,
+            )
 
-        content = response.choices[0].message.content
-        if content is None:
-            raise ValueError("Received empty response from OpenAI")
-        return content
+            content = response.choices[0].message.content
+            if content is None:
+                self.logger.error("Received empty response from OpenAI")
+                raise ValueError("Received empty response from OpenAI")
+
+            self.logger.info(
+                "Successfully received completion from OpenAI",
+                response_length=len(content),
+            )
+            return content
+
+        except Exception as e:
+            self.logger.error(
+                "Error getting completion from OpenAI",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
 
 
 class IngredientExtractor:
@@ -71,8 +94,9 @@ class IngredientExtractor:
     """
 
     def __init__(self) -> None:
-        """Initialize the OpenAI client."""
+        """Initialize the OpenAI client and logger."""
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.logger = StructuredLogger(__name__)
 
     def extract_ingredients(self, user_input: str) -> List[str]:
         """
@@ -84,6 +108,8 @@ class IngredientExtractor:
         Returns:
             List[str]: List of extracted ingredients.
         """
+        self.logger.info("Extracting ingredients from user input")
+
         chat_messages: List[ChatCompletionMessageParam] = [
             {
                 "role": "system",
@@ -95,23 +121,41 @@ class IngredientExtractor:
             },
         ]
 
-        response: ChatCompletion = self.client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=chat_messages,
-            temperature=0.3,
-        )
+        try:
+            response: ChatCompletion = self.client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=chat_messages,
+                temperature=0.3,
+            )
 
-        content = response.choices[0].message.content
-        if content is None:
-            raise ValueError("Received empty response from OpenAI")
+            content = response.choices[0].message.content
+            if content is None:
+                self.logger.error("Received empty response from OpenAI")
+                raise ValueError("Received empty response from OpenAI")
 
-        return [ing.strip() for ing in content.split(",")]
+            self.logger.info(
+                "Successfully extracted ingredients from user input",
+                ingredient_count=len(content.split(",")),
+            )
+            return [ing.strip() for ing in content.split(",")]
+
+        except Exception as e:
+            self.logger.error(
+                "Error extracting ingredients from user input",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
 
 
 class RecipeFinder:
     """
     Find recipes based on ingredients.
     """
+
+    def __init__(self) -> None:
+        """Initialize the logger."""
+        self.logger = StructuredLogger(__name__)
 
     def find_recipe(self, ingredients: List[str]) -> Recipe:
         """
@@ -123,8 +167,11 @@ class RecipeFinder:
         Returns:
             Recipe: A recipe that can be made with the given ingredients.
         """
+        self.logger.info("Searching for recipe")
+
         recipes = get_recipe(ingredients, number=1, ranking=2)
         if not recipes:
+            self.logger.error("No recipes found for the given ingredients")
             raise ValueError("No recipes found for the given ingredients")
         return recipes[0]
 
@@ -231,8 +278,9 @@ class RecipeSummarizer:
     """
 
     def __init__(self) -> None:
-        """Initialize the OpenAI client."""
+        """Initialize the OpenAI client and logger."""
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.logger = StructuredLogger(__name__)
 
     def summarize(
         self,
@@ -253,6 +301,8 @@ class RecipeSummarizer:
         Returns:
             str: A formatted summary of the recipe and costs.
         """
+        self.logger.info("Generating recipe summary")
+
         chat_messages: List[ChatCompletionMessageParam] = [
             {
                 "role": "system",
@@ -269,16 +319,30 @@ class RecipeSummarizer:
             },
         ]
 
-        response: ChatCompletion = self.client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=chat_messages,
-            temperature=0.7,
-        )
+        try:
+            response: ChatCompletion = self.client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=chat_messages,
+                temperature=0.7,
+            )
 
-        content = response.choices[0].message.content
-        if content is None:
-            raise ValueError("Received empty response from OpenAI")
-        return content
+            content = response.choices[0].message.content
+            if content is None:
+                self.logger.error("Received empty response from OpenAI")
+                raise ValueError("Received empty response from OpenAI")
+
+            self.logger.info(
+                "Successfully generated recipe summary", response_length=len(content)
+            )
+            return content
+
+        except Exception as e:
+            self.logger.error(
+                "Error generating recipe summary",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
 
 
 class IntentionDetector:
@@ -287,8 +351,9 @@ class IntentionDetector:
     """
 
     def __init__(self) -> None:
-        """Initialize the OpenAI client."""
+        """Initialize the OpenAI client and logger."""
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.logger = StructuredLogger(__name__)
 
     def detect_intention(self, user_input: str) -> str:
         """
@@ -300,6 +365,8 @@ class IntentionDetector:
         Returns:
             str: The detected intention.
         """
+        self.logger.info("Detecting user intention")
+
         chat_messages: List[ChatCompletionMessageParam] = [
             {
                 "role": "system",
@@ -311,13 +378,27 @@ class IntentionDetector:
             },
         ]
 
-        response: ChatCompletion = self.client.chat.completions.create(
-            model=OPENAI_MODEL,
-            messages=chat_messages,
-            temperature=0.3,
-        )
+        try:
+            response: ChatCompletion = self.client.chat.completions.create(
+                model=OPENAI_MODEL,
+                messages=chat_messages,
+                temperature=0.3,
+            )
 
-        content = response.choices[0].message.content
-        if content is None:
-            raise ValueError("Received empty response from OpenAI")
-        return content.lower()
+            content = response.choices[0].message.content
+            if content is None:
+                self.logger.error("Received empty response from OpenAI")
+                raise ValueError("Received empty response from OpenAI")
+
+            self.logger.info(
+                "Successfully detected user intention", intention=content.lower()
+            )
+            return content.lower()
+
+        except Exception as e:
+            self.logger.error(
+                "Error detecting user intention",
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+            raise
