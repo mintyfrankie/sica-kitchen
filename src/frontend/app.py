@@ -69,13 +69,15 @@ def handle_user_input(prompt: str) -> None:
 
 def display_chat_interface() -> None:
     """Display the chat interface and handle messages."""
-    st.title("🍳 Recipe Chatbot")
-    st.markdown("""
+    st.title("🧑‍🍳 SiCa Kitchen")
+    st.markdown(
+        """
     Welcome to your AI-powered cooking assistant! I can help you:
     - Find recipes based on ingredients you have
     - Calculate costs for missing ingredients
     - Answer general cooking questions
-    """)
+    """
+    )
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
@@ -92,8 +94,8 @@ def display_chat_interface() -> None:
 def main() -> None:
     """Main Streamlit application."""
     st.set_page_config(
-        page_title="Recipe Chatbot",
-        page_icon="🍳",
+        page_title="SiCa Kitchen",
+        page_icon="🧑‍🍳",
         layout="wide",
         initial_sidebar_state="expanded",
     )
