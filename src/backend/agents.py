@@ -343,10 +343,8 @@ class CostCalculator:
 
         for ingredient_name, price_info in price_data:
             if price_info["data"]:
-                # Get the first product's price
                 product = price_info["data"][0]
                 if product["items"]:
-                    # You might want to add more sophisticated price extraction logic here
                     price = float(
                         product["items"][0].get("price", {}).get("regular", 0)
                     )
