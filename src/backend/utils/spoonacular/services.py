@@ -8,15 +8,24 @@ including recipe search and detailed recipe information retrieval.
 import httpx
 import os
 from typing import Optional, List
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from backend.utils.spoonacular.interfaces import (
     RecipeInformation,
     Recipe,
 )
+from backend.utils.logging import StructuredLogger
+
+logger = StructuredLogger(__name__)
 
 
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=4, max=10),
+    reraise=True,
+)
 def get_recipe(
-    ingredients: List[str], number: int = 1, ranking: int = 1
+    ingredients: List[str], number: int = 1, ranking: int = 1, timeout: float = 30.0
 ) -> List[Recipe]:
     """
     Get recipes from Spoonacular API based on available ingredients.
@@ -27,6 +36,7 @@ def get_recipe(
         ranking: Sort mode for recipes:
                 1 = maximize used ingredients
                 2 = minimize missing ingredients
+        timeout: Timeout in seconds for the API request (default: 30.0)
 
     Returns:
         List[Recipe]: List of recipes matching the ingredients
@@ -34,6 +44,7 @@ def get_recipe(
     Raises:
         ValueError: If SPOONACULAR_API_KEY is not set
         httpx.HTTPError: If the API request fails
+        httpx.TimeoutException: If the request times out
     """
     ENDPOINT = "https://api.spoonacular.com/recipes/findByIngredients"
     API_KEY = os.getenv("SPOONACULAR_API_KEY")
@@ -41,15 +52,54 @@ def get_recipe(
         raise ValueError("SPOONACULAR_API_KEY is not set")
 
     params = {
-        "ingredients": ingredients,
+        "ingredients": ",".join(ingredients),  # Join ingredients with commas
         "number": number,
         "ranking": ranking,
         "apiKey": API_KEY,
     }
 
-    response = httpx.get(ENDPOINT, params=params)
-    response.raise_for_status()
-    return response.json()
+    try:
+        logger.info(
+            "Making request to Spoonacular API",
+            endpoint=ENDPOINT,
+            ingredient_count=len(ingredients),
+            number=number,
+        )
+
+        with httpx.Client(timeout=timeout) as client:
+            response = client.get(ENDPOINT, params=params)
+            response.raise_for_status()
+
+        logger.info(
+            "Successfully retrieved recipes from Spoonacular",
+            recipe_count=len(response.json()),
+        )
+
+        return response.json()
+
+    except httpx.TimeoutException as e:
+        logger.error(
+            "Timeout while fetching recipes from Spoonacular",
+            error=str(e),
+            timeout=timeout,
+        )
+        raise
+
+    except httpx.HTTPStatusError as e:
+        logger.error(
+            "HTTP error while fetching recipes from Spoonacular",
+            error=str(e),
+            status_code=e.response.status_code,
+        )
+        raise
+
+    except Exception as e:
+        logger.error(
+            "Unexpected error while fetching recipes from Spoonacular",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        raise
 
 
 def get_recipe_information(recipe_id: int) -> Optional[RecipeInformation]:

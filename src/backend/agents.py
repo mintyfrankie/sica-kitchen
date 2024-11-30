@@ -14,6 +14,12 @@ from backend.utils.spoonacular.interfaces import Recipe, Ingredient
 from backend.utils.kroger import authenticate_kroger, get_product_price
 from backend.utils.kroger.interfaces import KrogerProductSearchResponse
 from backend.utils.logging import StructuredLogger
+from backend.utils.prompts import (
+    INTENTION_DETECTOR_PROMPT,
+    INGREDIENT_EXTRACTOR_PROMPT,
+    RECIPE_FORMATTER_PROMPT,
+    SICA_SYSTEM_PROMPT,
+)
 
 
 class Message(TypedDict):
@@ -55,11 +61,20 @@ class GeneralAssistant:
 
         chat_messages: List[ChatCompletionMessageParam] = [
             {
-                "role": msg["role"],
-                "content": msg["content"],
-            }  # type: ignore[dict-item]
-            for msg in messages
+                "role": "system",
+                "content": SICA_SYSTEM_PROMPT,
+            }
         ]
+
+        chat_messages.extend(
+            [
+                {
+                    "role": msg["role"],
+                    "content": msg["content"],
+                }  # type: ignore[dict-item]
+                for msg in messages
+            ]
+        )
 
         try:
             response: ChatCompletion = self.client.chat.completions.create(
@@ -113,7 +128,7 @@ class IngredientExtractor:
         chat_messages: List[ChatCompletionMessageParam] = [
             {
                 "role": "system",
-                "content": "Extract ingredients from the user's input and return them as a comma-separated list. Only include the ingredient names, no quantities.",
+                "content": INGREDIENT_EXTRACTOR_PROMPT,
             },
             {
                 "role": "user",
@@ -465,22 +480,7 @@ class IntentionDetector:
         chat_messages: List[ChatCompletionMessageParam] = [
             {
                 "role": "system",
-                "content": """Detect the user's intention. Return EXACTLY one of these words without quotes:
-                ingredients
-                recipe_search
-                other
-
-                Guidelines:
-                - ingredients: If the user is just listing ingredients they have
-                - recipe_search: If the user is asking what they can make with ingredients or mentioning ingredients they want to cook with
-                - other: For any other type of request
-
-                Examples:
-                "I have chicken, onions, and garlic" -> ingredients
-                "What can I make with chicken and onions?" -> recipe_search
-                "I want to cook something with pasta" -> recipe_search
-                "How do I store leftover food?" -> other
-                """,
+                "content": INTENTION_DETECTOR_PROMPT,
             },
             {
                 "role": "user",
