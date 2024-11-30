@@ -123,7 +123,7 @@ class IngredientExtractor:
         Returns:
             List[str]: List of extracted ingredients.
         """
-        self.logger.info("Extracting ingredients from user input")
+        self.logger.debug("Extracting ingredients from user input")
 
         chat_messages: List[ChatCompletionMessageParam] = [
             {
@@ -148,9 +148,10 @@ class IngredientExtractor:
                 self.logger.error("Received empty response from OpenAI")
                 raise ValueError("Received empty response from OpenAI")
 
-            self.logger.info(
-                "Successfully extracted ingredients from user input",
+            self.logger.debug(
+                "Extracted ingredients",
                 ingredient_count=len(content.split(",")),
+                model=OPENAI_MODEL,
             )
             return [ing.strip() for ing in content.split(",")]
 
@@ -466,10 +467,8 @@ class RecipeSummarizer:
         Returns:
             str: A personalized summary of the recipe matching SiCa's personality
         """
-        # First format the recipe using the formatter
         formatted_recipe = self.formatter.format_recipe(recipe)
 
-        # Prepare the recipe data for the AI
         recipe_data = {
             "recipe": formatted_recipe,
             "missing_ingredients": [
@@ -495,7 +494,7 @@ class RecipeSummarizer:
             response: ChatCompletion = self.client.chat.completions.create(
                 model=OPENAI_MODEL,
                 messages=chat_messages,
-                temperature=0.7,  # Higher temperature for more creative responses
+                temperature=0.7,
             )
 
             content = response.choices[0].message.content
@@ -517,7 +516,6 @@ class RecipeSummarizer:
                 error=str(e),
                 error_type=type(e).__name__,
             )
-            # Fallback to basic summary if AI generation fails
             return self._create_basic_summary(
                 formatted_recipe, missing_ingredients, total_cost, ingredient_costs
             )
@@ -541,9 +539,7 @@ class RecipeSummarizer:
         Returns:
             str: A basic formatted summary
         """
-        # Previous template-based summary logic goes here
         summary = f"**{formatted_recipe['title']} Recipe Summary**\n\n"
-        # ... rest of the original summary logic ...
         return summary
 
 
@@ -570,7 +566,7 @@ class IntentionDetector:
                 - 'recipe_search': User is asking what they can make with ingredients
                 - 'other': User has a different request
         """
-        self.logger.info("Detecting user intention")
+        # self.logger.info("Detecting user intention")
 
         chat_messages: List[ChatCompletionMessageParam] = [
             {
@@ -598,8 +594,10 @@ class IntentionDetector:
             # Strip any whitespace and quotes
             intention = content.lower().strip().strip("'\"")
 
-            self.logger.info(
-                "Successfully detected user intention", intention=intention
+            self.logger.debug(
+                "Successfully detected user intention",
+                intention=intention,
+                model=OPENAI_MODEL,
             )
             return intention
 

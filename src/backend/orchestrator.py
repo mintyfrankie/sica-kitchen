@@ -105,10 +105,8 @@ class RecipeChatbot:
             ChatbotResponse: Containing the response message and any relevant data.
         """
         start_time = time.time()
-        self.logger.info("Processing new message", user_input=user_input)
 
         # Detect intention
-        self.logger.info("Detecting user intention")
         intention = self.intention_detector.detect_intention(user_input)
         self.logger.info("Detected intention", intention=intention)
 
@@ -116,54 +114,37 @@ class RecipeChatbot:
             self.logger.set_context(workflow="recipe_search")
 
             # Extract ingredients
-            self.logger.info("Extracting ingredients from input")
             ingredients = self.ingredient_extractor.extract_ingredients(user_input)
             self.conversation_state["available_ingredients"] = ingredients
-            self.logger.info("Extracted ingredients", ingredients=ingredients)
 
             # Find recipe
-            self.logger.info("Searching for recipe")
             recipe = self.recipe_finder.find_recipe(ingredients)
             self.conversation_state["recipe"] = recipe
-            self.logger.info("Found recipe", recipe_title=recipe["title"])
 
             # Get missing ingredients
-            self.logger.info("Identifying missing ingredients")
             missing_ingredients = self.recipe_adjuster.get_missing_ingredients(
                 recipe, ingredients
             )
             self.conversation_state["missing_ingredients"] = missing_ingredients
-            self.logger.info(
-                "Identified missing ingredients",
-                missing_count=len(missing_ingredients),
-                missing_items=[ing["name"] for ing in missing_ingredients],
-            )
 
             # Get prices
-            self.logger.info("Fetching prices for missing ingredients")
             price_data = self.price_fetcher.get_prices(missing_ingredients)
-            self.logger.info("Retrieved price data")
 
             # Calculate costs
-            self.logger.info("Calculating total cost")
             total_cost, ingredient_costs = self.cost_calculator.calculate_total_cost(
                 price_data
             )
-            self.logger.info(
-                "Cost calculation complete",
-                total_cost=total_cost,
-                ingredient_costs=ingredient_costs,
-            )
 
             # Create summary
-            self.logger.info("Generating recipe summary")
             summary = self.recipe_summarizer.summarize(
                 recipe, missing_ingredients, total_cost, ingredient_costs
             )
 
             processing_time = time.time() - start_time
             self.logger.info(
-                "Message processing complete", processing_time=f"{processing_time:.2f}s"
+                "Recipe workflow complete",
+                processing_time=f"{processing_time:.2f}s",
+                recipe_title=recipe["title"],
             )
 
             return ChatbotResponse(
